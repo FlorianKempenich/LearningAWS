@@ -12,11 +12,76 @@ provider "aws" {
   region  = "eu-west-1"
 }
 
-resource "aws_s3_bucket" "bucket" {
-  bucket = "sandbox-remove"
+
+resource "aws_vpc" "vpc" {
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_hostnames = true
+
   tags = {
-    "LearningAWS" = "the-bucket"
+    Name          = "LearningAWS_VPC"
+    "LearningAWS" = "vpc"
   }
+}
+
+resource "aws_subnet" "subnet_a" {
+  vpc_id                  = aws_vpc.vpc.id
+  cidr_block              = "10.0.0.0/24"
+  map_public_ip_on_launch = true
+
+  tags = {
+    "Name"        = "subnet_a_public"
+    "LearningAWS" = "subnet_a"
+  }
+
+  depends_on = [
+    aws_vpc.vpc,
+  ]
+}
+
+resource "aws_subnet" "subnet_b" {
+  vpc_id                  = aws_vpc.vpc.id
+  cidr_block              = "10.0.1.0/24"
+  map_public_ip_on_launch = false
+
+  tags = {
+    "Name"        = "subnet_b_private"
+    "LearningAWS" = "subnet_b"
+  }
+
+  depends_on = [
+    aws_vpc.vpc,
+  ]
+}
+
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.vpc.id
+
+  tags = {
+    "Name"        = "LearningAWS_igw"
+    "LearningAWS" = "igw"
+  }
+
+  depends_on = [
+    aws_vpc.vpc,
+  ]
+}
+
+data "aws_route_table" "route_table" {
+  vpc_id = aws_vpc.vpc.id
+
+  depends_on = [
+    aws_vpc.vpc,
+  ]
+}
+
+resource "aws_route" "name" {
+  route_table_id         = data.aws_route_table.route_table.id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = aws_internet_gateway.igw.id
+
+  depends_on = [
+    aws_vpc.vpc,
+  ]
 }
 
 resource "aws_instance" "some-ec2-instance" {
@@ -26,6 +91,7 @@ resource "aws_instance" "some-ec2-instance" {
   vpc_security_group_ids = [
     aws_security_group.sg_authorize_ssh_from_anywhere.id
   ]
+  subnet_id = aws_subnet.subnet_a.id
 
   tags = {
     "LearningAWS" = "the-instance"
@@ -33,6 +99,7 @@ resource "aws_instance" "some-ec2-instance" {
 
   depends_on = [
     aws_security_group.sg_authorize_ssh_from_anywhere,
+    aws_subnet.subnet_a,
   ]
 }
 
@@ -45,7 +112,7 @@ resource "aws_key_pair" "my_ssh_key" {
 }
 
 resource "aws_security_group" "sg_authorize_ssh_from_anywhere" {
-  vpc_id = "vpc-6a24ea13"
+  vpc_id = aws_vpc.vpc.id
 
   ingress {
     description = "SSH from Anywhere"
@@ -67,8 +134,16 @@ resource "aws_security_group" "sg_authorize_ssh_from_anywhere" {
     Name          = "sg_authorize_ssh_from_anywhere"
     "LearningAWS" = "security_group"
   }
+
+  depends_on = [
+    aws_vpc.vpc,
+  ]
 }
 
 output "ip_of_ec2_instance" {
   value = aws_instance.some-ec2-instance.public_ip
+}
+
+output "dns_of_ec2_instance" {
+  value = aws_instance.some-ec2-instance.public_dns
 }
