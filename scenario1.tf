@@ -9,7 +9,7 @@ terraform {
 
 provider "aws" {
   profile = "private-admin"
-  region  = "eu-west-1"
+  region  = "us-east-1"
 }
 
 
@@ -85,7 +85,7 @@ resource "aws_route" "name" {
 }
 
 resource "aws_instance" "some-ec2-instance" {
-  ami           = "ami-09b9e380df60300c8"
+  ami           = "ami-022758574f5a26580"
   instance_type = "t2.micro"
   key_name      = "main_ssh_key"
   vpc_security_group_ids = [
